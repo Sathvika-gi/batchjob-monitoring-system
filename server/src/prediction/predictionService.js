@@ -1,6 +1,7 @@
 import { Execution } from '../models/Execution.js';
 import { Job } from '../models/Job.js';
 import { Alert } from '../models/Alert.js';
+import { MonitoringConfig } from '../models/MonitoringConfig.js';
 import { config } from '../config/config.js';
 import { logger } from '../utils/logger.js';
 
@@ -31,8 +32,16 @@ export function calculateDurationStats(durations) {
  * Returns a risk object or null if insufficient data.
  */
 export async function predictDelayRisk(job) {
-  const minSamples = config.prediction.minSamples;
-  const anomalyMultiplier = config.prediction.anomalyMultiplier;
+  let minSamples = config.prediction?.minSamples || 5;
+  let anomalyMultiplier = config.prediction?.anomalyMultiplier || 1.5;
+
+  try {
+    const dbConfig = await MonitoringConfig.findOne({ singleton: true }).lean();
+    if (dbConfig?.prediction?.minSamples) minSamples = dbConfig.prediction.minSamples;
+    if (dbConfig?.prediction?.anomalyMultiplier) anomalyMultiplier = dbConfig.prediction.anomalyMultiplier;
+  } catch (err) {
+    logger.warn('Failed to load MonitoringConfig from DB, using fallback config:', err.message);
+  }
 
   // Fetch recent successful executions (last 30 days)
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);

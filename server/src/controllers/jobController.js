@@ -12,9 +12,21 @@ import { calculateDurationStats } from '../prediction/predictionService.js';
 const buildFilter = (q) => {
   const f = {};
   if (q.workflowId) f.workflowId = q.workflowId;
-  if (q.status) f.status = q.status;
+  if (q.status) {
+    if (q.status === 'at_risk') {
+      f.riskLevel = { $in: ['high', 'critical'] };
+    } else {
+      f.status = q.status;
+    }
+  }
   if (q.criticality) f.criticality = q.criticality;
-  if (q.riskLevel) f.riskLevel = q.riskLevel;
+  if (q.riskLevel) {
+    if (q.riskLevel === 'at_risk') {
+      f.riskLevel = { $in: ['high', 'critical'] };
+    } else {
+      f.riskLevel = q.riskLevel;
+    }
+  }
   if (q.isEnabled !== undefined) f.isEnabled = q.isEnabled === 'true';
   if (q.search) f.$or = [{ name: new RegExp(q.search, 'i') }, { jobKey: new RegExp(q.search, 'i') }];
   return f;

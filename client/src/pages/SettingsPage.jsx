@@ -107,6 +107,84 @@ export const SettingsPage = () => {
           </div>
         </div>
 
+        {/* SLA & Risk Threshold Settings */}
+        <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs space-y-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+            SLA Risk Rules & Anomaly Thresholds
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block font-medium text-slate-700 mb-1">
+                Duration Anomaly Over Expected (%)
+              </label>
+              <input
+                type="number"
+                disabled={!isAdmin}
+                value={settings?.thresholds?.durationAnomalyPercent ?? 50}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    thresholds: { ...settings.thresholds, durationAnomalyPercent: parseInt(e.target.value) || 0 },
+                  })
+                }
+                className="w-full p-2 border border-slate-300 rounded disabled:bg-slate-50"
+              />
+              <span className="text-[10px] text-slate-400 mt-0.5 block">
+                Flags job as At-Risk if predicted duration exceeds expected by this %.
+              </span>
+            </div>
+
+            <div>
+              <label className="block font-medium text-slate-700 mb-1">
+                Failure Rate Warning Threshold
+              </label>
+              <input
+                type="number"
+                step="0.05"
+                min="0"
+                max="1"
+                disabled={!isAdmin}
+                value={settings?.thresholds?.failureRateWarning ?? 0.2}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    thresholds: { ...settings.thresholds, failureRateWarning: parseFloat(e.target.value) || 0 },
+                  })
+                }
+                className="w-full p-2 border border-slate-300 rounded disabled:bg-slate-50"
+              />
+              <span className="text-[10px] text-slate-400 mt-0.5 block">
+                0.2 = 20% recent execution failure triggers High SLA risk.
+              </span>
+            </div>
+
+            <div>
+              <label className="block font-medium text-slate-700 mb-1">
+                Failure Rate Critical Threshold
+              </label>
+              <input
+                type="number"
+                step="0.05"
+                min="0"
+                max="1"
+                disabled={!isAdmin}
+                value={settings?.thresholds?.failureRateCritical ?? 0.5}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    thresholds: { ...settings.thresholds, failureRateCritical: parseFloat(e.target.value) || 0 },
+                  })
+                }
+                className="w-full p-2 border border-slate-300 rounded disabled:bg-slate-50"
+              />
+              <span className="text-[10px] text-slate-400 mt-0.5 block">
+                0.5 = 50% recent execution failure triggers Critical SLA risk.
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Scheduler Settings */}
         <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs space-y-4">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">

@@ -125,12 +125,14 @@ export async function getWorkflowGraph(workflowId) {
     type: 'jobNode',
   }));
 
-  const edges = deps.map(d => ({
-    id: d._id.toString(),
-    source: d.upstreamJobId._id.toString(),
-    target: d.downstreamJobId._id.toString(),
-    data: { dependencyType: d.dependencyType, dependencyId: d._id },
-  }));
+  const edges = deps
+    .filter(d => d.upstreamJobId && d.downstreamJobId)
+    .map(d => ({
+      id: d._id.toString(),
+      source: (d.upstreamJobId._id || d.upstreamJobId).toString(),
+      target: (d.downstreamJobId._id || d.downstreamJobId).toString(),
+      data: { dependencyType: d.dependencyType, dependencyId: d._id },
+    }));
 
   return { nodes, edges };
 }

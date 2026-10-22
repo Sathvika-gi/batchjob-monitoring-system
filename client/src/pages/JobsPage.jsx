@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useOutletContext, useNavigate, Link } from 'react-router-dom';
+import { useOutletContext, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import api, { getApiErrorMessage } from '../services/api';
 import { StatusBadge, SeverityBadge } from '../components/common/Badges';
 import { useAuth } from '../context/AuthContext';
@@ -14,12 +14,14 @@ import {
   ChevronLeft,
   X,
   AlertCircle,
+  AlertTriangle,
 } from 'lucide-react';
 
 export const JobsPage = () => {
   const { refreshKey, triggerRefresh } = useOutletContext();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [jobs, setJobs] = useState([]);
   const [total, setTotal] = useState(0);
@@ -30,10 +32,11 @@ export const JobsPage = () => {
 
   // Filters
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
+  const [riskFilter, setRiskFilter] = useState(searchParams.get('riskLevel') || '');
   const [criticalityFilter, setCriticalityFilter] = useState('');
   const [workflows, setWorkflows] = useState([]);
-  const [selectedWorkflow, setSelectedWorkflow] = useState('');
+  const [selectedWorkflow, setSelectedWorkflow] = useState(searchParams.get('workflowId') || '');
 
   // Create Job Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -73,6 +76,7 @@ export const JobsPage = () => {
         limit,
         ...(search && { search }),
         ...(statusFilter && { status: statusFilter }),
+        ...(riskFilter && { riskLevel: riskFilter }),
         ...(criticalityFilter && { criticality: criticalityFilter }),
         ...(selectedWorkflow && { workflowId: selectedWorkflow }),
       });
@@ -90,7 +94,7 @@ export const JobsPage = () => {
 
   useEffect(() => {
     fetchJobs();
-  }, [refreshKey, page, statusFilter, criticalityFilter, selectedWorkflow]);
+  }, [refreshKey, page, statusFilter, riskFilter, criticalityFilter, selectedWorkflow]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -198,6 +202,20 @@ export const JobsPage = () => {
             <option value="running">Running</option>
             <option value="pending">Pending</option>
             <option value="blocked">Blocked</option>
+            <option value="at_risk">At-Risk</option>
+          </select>
+
+          <select
+            value={riskFilter}
+            onChange={(e) => { setRiskFilter(e.target.value); setPage(1); }}
+            className="text-xs border border-slate-200 rounded px-2.5 py-1.5 bg-slate-50 text-slate-700"
+          >
+            <option value="">Risk: All</option>
+            <option value="at_risk">At-Risk (High/Critical)</option>
+            <option value="critical">Critical Risk</option>
+            <option value="high">High Risk</option>
+            <option value="medium">Medium Risk</option>
+            <option value="low">Low Risk</option>
           </select>
 
           <select
@@ -240,6 +258,7 @@ export const JobsPage = () => {
                 <th className="px-4 py-3">Job Name & Key</th>
                 <th className="px-4 py-3">Workflow</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Risk Level</th>
                 <th className="px-4 py-3">Schedule</th>
                 <th className="px-4 py-3">Criticality</th>
                 <th className="px-4 py-3">Last Duration</th>
@@ -250,13 +269,13 @@ export const JobsPage = () => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="px-4 py-8 text-center text-xs text-slate-400">
+                  <td colSpan="9" className="px-4 py-8 text-center text-xs text-slate-400">
                     Loading jobs...
                   </td>
                 </tr>
               ) : jobs.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-4 py-8 text-center text-xs text-slate-400">
+                  <td colSpan="9" className="px-4 py-8 text-center text-xs text-slate-400">
                     {loadError ? 'Jobs could not be loaded.' : 'No jobs found matching criteria.'}
                   </td>
                 </tr>
@@ -276,6 +295,19 @@ export const JobsPage = () => {
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={job.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border ${
+                        job.riskLevel === 'critical'
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : job.riskLevel === 'high'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : job.riskLevel === 'medium'
+                          ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                          : 'bg-slate-50 text-slate-600 border-slate-200'
+                      }`}>
+                        {job.riskLevel || 'low'}
+                      </span>
                     </td>
                     <td className="px-4 py-3 font-mono text-[11px] text-slate-600">
                       {job.schedule || 'Manual'}

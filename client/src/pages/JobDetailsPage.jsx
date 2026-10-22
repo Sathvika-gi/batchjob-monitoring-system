@@ -72,8 +72,13 @@ export const JobDetailsPage = () => {
     try {
       await api.post(`/jobs/${id}/run`);
       alert('Execution queued!');
-      const execRes = await api.get(`/jobs/${id}/executions?limit=10`);
+      const [jobRes, execRes] = await Promise.all([
+        api.get(`/jobs/${id}`),
+        api.get(`/jobs/${id}/executions?limit=10`),
+      ]);
+      setJob(jobRes.data.data);
       setExecutions(execRes.data.data);
+      triggerRefresh();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to queue job');
     }

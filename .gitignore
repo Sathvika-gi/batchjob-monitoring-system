@@ -7,3 +7,4 @@ dist/
 *.log
 coverage/
 .nyc_output/
+unwanted/

@@ -45,7 +45,7 @@ export const OverviewPage = () => {
       try {
         const [overviewRes, trendRes, wfRes, alertRes] = await Promise.all([
           api.get(`/analytics/overview?range=${timeRange}`),
-          api.get(`/analytics/executions/trend?range=7d`),
+          api.get(`/analytics/executions/trend?range=${timeRange}`),
           api.get('/workflows?limit=5'),
           api.get('/alerts?status=open&limit=5'),
         ]);
@@ -71,27 +71,30 @@ export const OverviewPage = () => {
   const summary = stats?.summary || {
     totalJobs: 0,
     successfulJobs: 0,
+    successfulExecutions: 0,
     failedJobs: 0,
     runningJobs: 0,
     pendingJobs: 0,
+    blockedJobs: 0,
     atRiskJobs: 0,
   };
 
   const metricCards = [
-    { title: 'Total Jobs', value: summary.totalJobs, icon: Server, color: 'text-slate-700', bg: 'bg-slate-50' },
-    { title: 'Successful Executions', value: summary.successfulJobs, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { title: 'Failed Jobs', value: summary.failedJobs, icon: XCircle, color: 'text-rose-600', bg: 'bg-rose-50' },
-    { title: 'Running Jobs', value: summary.runningJobs, icon: PlayCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { title: 'Pending Jobs', value: summary.pendingJobs, icon: Clock, color: 'text-slate-600', bg: 'bg-slate-50' },
-    { title: 'At-Risk Jobs', value: summary.atRiskJobs, icon: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { title: 'Total Jobs', value: summary.totalJobs, icon: Server, color: 'text-slate-700', bg: 'bg-slate-50', subtitle: 'Configured jobs', link: '/jobs' },
+    { title: 'Successful Jobs', value: summary.successfulJobs, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', subtitle: 'Latest state success', link: '/jobs?status=success' },
+    { title: 'Successful Executions', value: summary.successfulExecutions, icon: TrendingUp, color: 'text-teal-700', bg: 'bg-teal-50', subtitle: `Past ${timeRange} history`, link: '/executions?status=success' },
+    { title: 'Failed Jobs', value: summary.failedJobs, icon: XCircle, color: 'text-rose-600', bg: 'bg-rose-50', subtitle: 'Failed or timed out', link: '/jobs?status=failed' },
+    { title: 'Running Jobs', value: summary.runningJobs, icon: PlayCircle, color: 'text-blue-600', bg: 'bg-blue-50', subtitle: 'Active execution', link: '/jobs?status=running' },
+    { title: 'At-Risk Jobs', value: summary.atRiskJobs, icon: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-50', subtitle: 'SLA delay risk', link: '/jobs?riskLevel=at_risk' },
   ];
 
   const distributionData = [
     { name: 'Success', value: summary.successfulJobs, color: '#10B981' },
     { name: 'Failed', value: summary.failedJobs, color: '#EF4444' },
     { name: 'Running', value: summary.runningJobs, color: '#3B82F6' },
-    { name: 'Pending', value: summary.pendingJobs, color: '#64748B' },
-  ];
+    { name: 'Blocked', value: summary.blockedJobs || 0, color: '#F59E0B' },
+    { name: 'Pending', value: summary.pendingJobs || 0, color: '#64748B' },
+  ].filter((d) => d.value > 0);
 
   return (
     <div className="space-y-6">
@@ -127,9 +130,13 @@ export const OverviewPage = () => {
         {metricCards.map((card, idx) => {
           const Icon = card.icon;
           return (
-            <div key={idx} className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs flex flex-col justify-between">
+            <div
+              key={idx}
+              onClick={() => card.link && navigate(card.link)}
+              className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs flex flex-col justify-between cursor-pointer hover:border-slate-300 hover:shadow-sm transition-all"
+            >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate" title={card.title}>
                   {card.title}
                 </span>
                 <div className={`p-1.5 rounded ${card.bg} ${card.color}`}>
@@ -138,6 +145,9 @@ export const OverviewPage = () => {
               </div>
               <div>
                 <span className="text-2xl font-bold text-slate-900">{card.value}</span>
+                {card.subtitle && (
+                  <p className="text-[10px] text-slate-400 mt-0.5 truncate">{card.subtitle}</p>
+                )}
               </div>
             </div>
           );

@@ -19,6 +19,13 @@ export const AppLayout = () => {
   };
 
   useEffect(() => {
+    const timer = setInterval(() => {
+      setRefreshKey(Date.now());
+    }, 30000); // 30s background poll
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     const checkHealth = async () => {
       try {
         const res = await api.get('/health');

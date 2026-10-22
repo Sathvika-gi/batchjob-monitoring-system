@@ -116,7 +116,7 @@ export async function simulateExecution(executionId) {
   });
 
   const jobUpdate = {
-    status: finalStatus === 'success' ? 'pending' : finalStatus,
+    status: finalStatus,
     lastRunAt: completedAt,
     lastRunStatus: finalStatus,
     lastDurationMs: Math.round(actualDuration),
@@ -158,7 +158,7 @@ async function handleExecutionFailure(job, execution, status, errorMessage) {
   const downstreamIds = await getDownstreamJobIds(job._id, job.workflowId);
   if (downstreamIds.size > 0) {
     await Job.updateMany(
-      { _id: { $in: [...downstreamIds] }, status: { $in: ['pending', 'queued'] } },
+      { _id: { $in: [...downstreamIds] }, status: { $in: ['pending', 'queued', 'success'] } },
       { status: 'blocked', riskLevel: 'critical' }
     );
   }
@@ -173,10 +173,15 @@ async function triggerDependentJobs(completedJobId) {
     const upstreamDeps = await Dependency.find({ downstreamJobId: dep.downstreamJobId }).lean();
     const allSatisfied = await Promise.all(upstreamDeps.map(async (d) => {
       const j = await Job.findById(d.upstreamJobId);
-      return j && j.lastRunStatus === 'success';
+      return j && (j.lastRunStatus === 'success' || j.status === 'success');
     }));
-    if (allSatisfied.every(Boolean) && downJob.status === 'pending') {
-      logger.info(`Dependency satisfied; job ${downJob.jobKey} is now eligible to run`);
+    if (allSatisfied.every(Boolean)) {
+      if (downJob.status === 'blocked') {
+        await Job.findByIdAndUpdate(downJob._id, { status: 'pending', riskLevel: 'low' });
+        logger.info(`Upstream dependency satisfied; unblocked job ${downJob.jobKey} (transitioned to pending)`);
+      } else if (downJob.status === 'pending') {
+        logger.info(`Dependency satisfied; job ${downJob.jobKey} is now eligible to run`);
+      }
     }
   }
 }

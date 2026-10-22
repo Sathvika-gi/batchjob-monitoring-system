@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { StatusBadge } from '../components/common/Badges';
 import { useAuth } from '../context/AuthContext';
@@ -16,6 +16,7 @@ import {
 export const ExecutionHistoryPage = () => {
   const { refreshKey, triggerRefresh } = useOutletContext();
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
 
   const [executions, setExecutions] = useState([]);
   const [total, setTotal] = useState(0);
@@ -24,7 +25,7 @@ export const ExecutionHistoryPage = () => {
   const [loading, setLoading] = useState(true);
 
   // Filters
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(searchParams.get('status') || '');
   const [triggerType, setTriggerType] = useState('');
 
   // Logs Modal
@@ -65,8 +66,26 @@ export const ExecutionHistoryPage = () => {
     }
   };
 
-  const handleExportCSV = () => {
-    window.open(`/api/v1/executions/export?status=${status}&triggerType=${triggerType}`, '_blank');
+  const handleExportCSV = async () => {
+    try {
+      const query = new URLSearchParams({
+        ...(status && { status }),
+        ...(triggerType && { triggerType }),
+      });
+      const response = await api.get(`/executions/export?${query.toString()}`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `executions_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Failed to export CSV: ' + (err.response?.data?.message || err.message));
+    }
   };
 
   const totalPages = Math.ceil(total / limit) || 1;

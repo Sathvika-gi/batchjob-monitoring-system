@@ -20,40 +20,67 @@ export const getOverviewStats = async (req, res, next) => {
   try {
     const range = req.query.range || '24h';
     const { start, end } = getDateRange(range);
-    const prevStart = new Date(start - (end - start));
 
-    const [totalJobs, statusCounts, recentExecs, openAlerts, atRiskJobs] = await Promise.all([
+    const [totalJobs, allJobs, recentExecs, openAlerts, execCounts] = await Promise.all([
       Job.countDocuments(),
-      Job.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+      Job.find().lean(),
       Execution.find({ startedAt: { $gte: start } })
         .populate('jobId', 'name jobKey')
         .populate('workflowId', 'name')
         .sort('-startedAt').limit(20).lean(),
       Alert.countDocuments({ status: 'open' }),
-      Job.countDocuments({ riskLevel: { $in: ['high', 'critical'] } }),
+      Execution.aggregate([
+        { $match: { startedAt: { $gte: start, $lte: end } } },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
     ]);
 
-    const byStatus = {};
-    for (const s of statusCounts) byStatus[s._id] = s.count;
+    // Distinct jobs current operational status counts
+    let runningJobs = 0;
+    let failedJobs = 0;
+    let blockedJobs = 0;
+    let successfulJobs = 0;
+    let pendingJobs = 0;
+    let atRiskJobs = 0;
 
-    const execCounts = await Execution.aggregate([
-      { $match: { startedAt: { $gte: start, $lte: end } } },
-      { $group: { _id: '$status', count: { $sum: 1 } } },
-    ]);
+    for (const j of allJobs) {
+      if (j.riskLevel === 'high' || j.riskLevel === 'critical') atRiskJobs++;
+
+      if (j.status === 'running') {
+        runningJobs++;
+      } else if (j.status === 'failed' || j.status === 'timed_out' || j.lastRunStatus === 'failed' || j.lastRunStatus === 'timed_out') {
+        failedJobs++;
+      } else if (j.status === 'blocked') {
+        blockedJobs++;
+      } else if (j.status === 'success' || (j.lastRunStatus === 'success' && j.status !== 'blocked')) {
+        successfulJobs++;
+      } else {
+        pendingJobs++;
+      }
+    }
+
     const execByStatus = {};
-    for (const s of execCounts) execByStatus[s._id] = s.count;
+    let totalExecsInWindow = 0;
+    for (const s of execCounts) {
+      execByStatus[s._id] = s.count;
+      totalExecsInWindow += s.count;
+    }
 
     res.json({
       success: true,
       data: {
         summary: {
           totalJobs,
-          runningJobs: byStatus.running || 0,
-          pendingJobs: byStatus.pending || 0,
-          failedJobs: (byStatus.failed || 0) + (byStatus.timed_out || 0),
-          successfulJobs: execByStatus.success || 0,
+          successfulJobs,
+          successfulExecutions: execByStatus.success || 0,
+          failedJobs,
+          failedExecutions: (execByStatus.failed || 0) + (execByStatus.timed_out || 0),
+          runningJobs,
+          pendingJobs,
+          blockedJobs,
           atRiskJobs,
           openAlerts,
+          totalExecutionsInWindow: totalExecsInWindow,
         },
         recentExecutions: recentExecs.slice(0, 10),
       },
